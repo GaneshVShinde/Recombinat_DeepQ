@@ -36,7 +36,10 @@ class HiddenLayer:
 
 
 class DQN:
-  def __init__(self, D, K, hidden_layer_sizes, gamma, max_experiences=10000, min_experiences=100, batch_sz=32):
+  def __init__(self, D, K, 
+  hidden_layer_sizes, gamma, 
+  max_experiences=10000, min_experiences=100, 
+  batch_sz=32):
     self.K = K
 
     # create the graph

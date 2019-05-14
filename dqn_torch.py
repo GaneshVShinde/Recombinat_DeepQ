@@ -1,22 +1,19 @@
-import gym
-import numpy as np
 import random
 import torch 
-import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import namedtuple
-import random
 from torch.autograd import Variable
 import torch.utils.data as utils_data
-import sklearn.datasets as datasets
 import network
-import sys
+import os
+import errno
+import pickle
 
 
-Transition = namedtuple('Student',('state','action','next_state','reward')) 
-BATCH_SIZE = 32
+Transition = namedtuple('Transition',('state','action','next_state','reward')) 
+BATCH_SIZE = 64
 
 
 
@@ -96,6 +93,28 @@ class DQN:
     def remember(self,state,action,next_state,reward):
         self.memory.push(state,action,next_state,reward)
 
+    def save(self,folder):
+        if not os.path.exists(folder):
+            os.makedirs(folder)   
+        torch.save(self.policy_net,folder+"/policy_net.model")
+        #torch.save(self.target_net,folder+"/target_net.model")
+
+        with open(folder+"/replay.pkl",'wb') as f:
+            pickle.dump(self.memory.memory,f)
+
+    def load(self,folder):
+        #if os.path
+        if not os.path.exists(folder):
+            raise
+        self.policy_net=torch.load(folder+"/policy_net.model")
+        #self.target_net=torch.load(folder+"/target_net.model")
+        self.policy_net.eval()
+        #self.target_net.eval()
+
+        with open(folder+"/replay.pkl",'rb') as f:
+            self.memory.memory=pickle.load(f)
+
+
 
 
 class DDQN:
@@ -160,6 +179,31 @@ class DDQN:
     def remember(self,state,action,next_state,reward):
         self.memory.push(state,action,next_state,reward)
 
+    def save(self,folder):
+        if not os.path.exists(folder):
+            os.makedirs(folder)   
+        torch.save(self.policy_net,folder+"/policy_net.model")
+        torch.save(self.target_net,folder+"/target_net.model")
+
+        with open(folder+"/replay.pkl",'wb') as f:
+            pickle.dump(self.memory.memory,f)
+
+    def load(self,folder):
+        #if os.path
+        if not os.path.exists(folder):
+            raise
+        self.policy_net=torch.load(folder+"/policy_net.model")
+        self.target_net=torch.load(folder+"/target_net.model")
+        self.policy_net.eval()
+        self.target_net.eval()
+
+        with open(folder+"/replay.pkl",'rb') as f:
+            self.memory.memory=pickle.load(f)
+
+################################################################################
+
+##############test functions###############################################
+
 
 def plot_running_avg(totalrewards):
     N = len(totalrewards)
@@ -172,11 +216,15 @@ def plot_running_avg(totalrewards):
 
 
 if __name__ == '__main__':
+    import gym
+    import numpy as np
     import matplotlib
     import matplotlib.pyplot as plt
     from gym import wrappers
     from datetime import datetime
+    #import sklearn.datasets as datasets
     import math
+    import sys
 
     import os
     env = gym.make('CartPole-v0').env
@@ -187,7 +235,7 @@ if __name__ == '__main__':
     plt.ion()
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    agent=DDQN([state_size,10,10,action_size])
+    agent=DDQN([state_size,30,10,action_size])
     done = False
     BATCH_SIZE = 128
     argv='monitor'
@@ -200,7 +248,7 @@ if __name__ == '__main__':
     num_episodes = 1000
     rewards=[]
     if 'monitor' in sys.argv:
-        #filename = os.path.basename(__file__).split('.')[0]
+        filename = os.path.basename(__file__).split('.')[0]
         monitor_dir = './' + filename + '_' + str(datetime.now())
         env = wrappers.Monitor(env, monitor_dir)
     for e in range(num_episodes):
@@ -212,9 +260,8 @@ if __name__ == '__main__':
             eps_threshold = EPS_END + (EPS_START - EPS_END)* math.exp(-1. * t / EPS_DECAY)
             action = agent.select_action(torch.from_numpy(state).float())
             next_state,reward,done,_ = env.step(action)
-            
+
             reward = reward if not done else -10
-            
             agent.remember(state.tolist(),action,next_state.tolist(),reward)
             state = next_state
             agent.learn_model()
@@ -226,6 +273,10 @@ if __name__ == '__main__':
             totalreward += reward
             t += 1
         rewards.append(totalreward)
+        if totalreward>1000:
+            filename = os.path.basename(__file__).split('.')[0]
+            monitor_dir = '../DQ_models/' + filename + '_' + str(datetime.now())
+            agent.save(monitor_dir)
     
     plt.plot(rewards)
     plt.title("Rewards")
@@ -236,3 +287,27 @@ if __name__ == '__main__':
     
         
     env.close()
+
+
+def play_some_time(model_directory):
+    agent = DDQN([2,3,1])
+    agent.load(model_directory)
+    env=gym.make('CartPole-v0').env
+    rewards=[]
+    for e in range(100):
+        state = env.reset()
+        done =False
+        t=0
+        totalreward = 0
+        while not done and t<10000:
+            action=agent.select_action(torch.from_numpy(state).float(),0)
+            next_state,reward,done,_=env.step(action)
+            totalreward += reward
+            t += 1 
+            state = next_state
+        rewards.append(totalreward)
+    plt.plot(rewards)
+    plt.title("Rewards")
+    plot_running_avg(np.array(rewards))
+    return rewards
+
