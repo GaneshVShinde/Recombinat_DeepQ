@@ -13,7 +13,6 @@ import pickle
 
 
 Transition = namedtuple('Transition',('state','action','next_state','reward')) 
-BATCH_SIZE = 64
 
 
 
@@ -37,103 +36,24 @@ class ReplayMemory(object):
         return len(self.memory)
 
 
-
-class DQN:
-    def __init__(self,layers):
-        self.policy_net=network.Network(layers) # policy network
-        self.memory = ReplayMemory(1000)
-        self.optimizer = optim.RMSprop(self.policy_net.parameters())
-        self.state_dimention = layers[0]
-        self.n_action = layers[-1]
-        self.nlayers = layers
-        self.gamma = 0.95
-        
-    def select_action(self,state,eps=0.01):
-        sample=random.random()
-        state
-        if sample<eps:
-            return random.choice(range(self.n_action))
-        else:
-            return torch.max(self.policy_net(state),0)[1].tolist()
-    
-    def learn_model(self):
-        if len(self.memory)<BATCH_SIZE:
-            return
-        transitions = self.memory.sample(BATCH_SIZE)
-
-        batch = Transition(*zip(*transitions))
-        state_batch = torch.tensor(batch.state)
-        nextState_batch = torch.tensor(batch.next_state)
-        reward_batch = torch.tensor(batch.reward)
-        action_batch = torch.tensor(batch.action)
-        
-        state_action_values = self.policy_net(state_batch.float())
-        
-        next_state_value = self.policy_net(nextState_batch.float()).max(1)[0].detach()
-        
-        expected_rewards=next_state_value*self.gamma+reward_batch.float()
-        
-        target_action_values= state_action_values.clone()
-        
-        r_idx=torch.arange(target_action_values.size(0)).long()
-        
-        target_action_values[r_idx,action_batch] = expected_rewards
-        
-        loss = F.smooth_l1_loss(state_action_values,target_action_values)
-        
-        self.optimizer.zero_grad()
-        
-        loss.backward()
-        
-        for param in self.policy_net.parameters():#Gradient cliping to 
-            param.grad.data.clamp_(-1,1)
-            
-        self.optimizer.step()
-        
-    def remember(self,state,action,next_state,reward):
-        self.memory.push(state,action,next_state,reward)
-
-    def save(self,folder):
-        if not os.path.exists(folder):
-            os.makedirs(folder)   
-        torch.save(self.policy_net,folder+"/policy_net.model")
-        #torch.save(self.target_net,folder+"/target_net.model")
-
-        with open(folder+"/replay.pkl",'wb') as f:
-            pickle.dump(self.memory.memory,f)
-
-    def load(self,folder):
-        #if os.path
-        if not os.path.exists(folder):
-            raise
-        self.policy_net=torch.load(folder+"/policy_net.model")
-        #self.target_net=torch.load(folder+"/target_net.model")
-        self.policy_net.eval()
-        #self.target_net.eval()
-
-        with open(folder+"/replay.pkl",'rb') as f:
-            self.memory.memory=pickle.load(f)
-
-
-
-
 class DDQN:
-    def __init__(self,layers):
+    def __init__(self,layers,mem_size,batch_size,gamma=0.95):
         self.policy_net=network.Network(layers) # policy network
         self.target_net=network.Network(layers) # target network 
-        self.memory = ReplayMemory(1000)
+        self.memory = ReplayMemory(mem_size)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.state_dimention = layers[0]
         self.n_action = layers[-1]
         self.nlayers = layers
-        self.gamma = 0.95
+        self.gamma = gamma
+        self.batch_size=batch_size
         
     
     def update_target_model(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
     
-    def select_action(self,state,eps=0.01):
+    def select_action(self,state,eps=0.1):
         sample=random.random()
         
         if sample<eps:
@@ -142,9 +62,9 @@ class DDQN:
             return torch.max(self.policy_net(state),0)[1].tolist()
     
     def learn_model(self):
-        if len(self.memory)<BATCH_SIZE:
+        if len(self.memory)<self.batch_size:
             return
-        transitions = self.memory.sample(BATCH_SIZE)
+        transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
 
 
@@ -214,7 +134,7 @@ def plot_running_avg(totalrewards):
     plt.title("Running Average")
     plt.show()
 
-
+#################playing cart pole using DQN#################
 if __name__ == '__main__':
     import gym
     import numpy as np
@@ -310,4 +230,83 @@ def play_some_time(model_directory):
     plt.title("Rewards")
     plot_running_avg(np.array(rewards))
     return rewards
+
+
+
+# class DQN:
+#     def __init__(self,layers):
+#         self.policy_net=network.Network(layers) # policy network
+#         self.memory = ReplayMemory(1000)
+#         self.optimizer = optim.RMSprop(self.policy_net.parameters())
+#         self.state_dimention = layers[0]
+#         self.n_action = layers[-1]
+#         self.nlayers = layers
+#         self.gamma = 0.95
+        
+#     def select_action(self,state,eps=0.01):
+#         sample=random.random()
+#         state
+#         if sample<eps:
+#             return random.choice(range(self.n_action))
+#         else:
+#             return torch.max(self.policy_net(state),0)[1].tolist()
+    
+#     def learn_model(self):
+#         if len(self.memory)<BATCH_SIZE:
+#             return
+#         transitions = self.memory.sample(BATCH_SIZE)
+
+#         batch = Transition(*zip(*transitions))
+#         state_batch = torch.tensor(batch.state)
+#         nextState_batch = torch.tensor(batch.next_state)
+#         reward_batch = torch.tensor(batch.reward)
+#         action_batch = torch.tensor(batch.action)
+        
+#         state_action_values = self.policy_net(state_batch.float())
+        
+#         next_state_value = self.policy_net(nextState_batch.float()).max(1)[0].detach()
+        
+#         expected_rewards=next_state_value*self.gamma+reward_batch.float()
+        
+#         target_action_values= state_action_values.clone()
+        
+#         r_idx=torch.arange(target_action_values.size(0)).long()
+        
+#         target_action_values[r_idx,action_batch] = expected_rewards
+        
+#         loss = F.smooth_l1_loss(state_action_values,target_action_values)
+        
+#         self.optimizer.zero_grad()
+        
+#         loss.backward()
+        
+#         for param in self.policy_net.parameters():#Gradient cliping to 
+#             param.grad.data.clamp_(-1,1)
+            
+#         self.optimizer.step()
+        
+#     def remember(self,state,action,next_state,reward):
+#         self.memory.push(state,action,next_state,reward)
+
+#     def save(self,folder):
+#         if not os.path.exists(folder):
+#             os.makedirs(folder)   
+#         torch.save(self.policy_net,folder+"/policy_net.model")
+#         #torch.save(self.target_net,folder+"/target_net.model")
+
+#         with open(folder+"/replay.pkl",'wb') as f:
+#             pickle.dump(self.memory.memory,f)
+
+#     def load(self,folder):
+#         #if os.path
+#         if not os.path.exists(folder):
+#             raise
+#         self.policy_net=torch.load(folder+"/policy_net.model")
+#         #self.target_net=torch.load(folder+"/target_net.model")
+#         self.policy_net.eval()
+#         #self.target_net.eval()
+
+#         with open(folder+"/replay.pkl",'rb') as f:
+#             self.memory.memory=pickle.load(f)
+
 

@@ -1,20 +1,21 @@
 import torch
 
 
-class Single_net(torch.nn.Module):
+class Single_net(torch.nn.Module): #regression network1
     def __init__(self, n_feature, n_hidden, n_output):
         super(Single_net, self).__init__()
         self.hidden = torch.nn.Linear(n_feature, n_hidden)   # hidden layer
         self.predict = torch.nn.Linear(n_hidden, n_output)   # output layer
 
     def forward(self, x):
-        tanh = torch.nn.ReLU()
-        x = tanh(self.hidden(x))      # activation function for hidden layer
+        relu = torch.nn.ReLU()
+        x = relu(self.hidden(x))      # activation function for hidden layer
         x = self.predict(x)             # linear output
         return x
 
 
-class Network(torch.nn.Module):
+
+class Network(torch.nn.Module): #regression network 2
     def __init__(self,layers):
         super(Network, self).__init__()
         self.nLayers= len(layers)
@@ -30,6 +31,45 @@ class Network(torch.nn.Module):
             out = tanh(out)
         out = self.linear[-1](out)
         return out
+
+
+class base_network(torch.nn.Module):
+    def __init__(self,layers):
+        super(base_network,self).__init__()
+        self.nLayers = len(layers)
+        self.layers = layers
+        self.linear = torch.nn.ModuleList()
+        self.tanh = torch.nn.Tanh()
+        for i in range(self.nLayers-1):
+            self.linear.append(torch.nn.Linear(layers[i],layers[i+1]))
+    
+    def forward(self,out):
+        for i in range(self.nLayers-1):
+            out=self.linear[i](out)
+            out=self.tanh(out)
+        return out
+
+class internal_memory:
+    def __init__(self,layers):
+        self.memory = base_network(layers)
+        self.optimizer= torch.optim.SGD(self.memory.parameters(),lr=0.001)
+        self.loss = torch.nn.MSELoss()
+        self.output =[0]
+
+    def trainOne(self,input,target):
+        prediction=self.memory(torch.tensor(input).float())
+        self.optimizer.zero_grad()
+        loss=self.loss(prediction,torch.tensor([target]).float())
+        loss.backward()
+        self.optimizer.step()
+
+    def update(self,input):
+        self.output=self.memory(torch.tensor(input).float()).tolist()
+        return self.output[0]
+        
+
+
+
 
 
 def train(net,X,y,no_epochs,loss_func,optimizer):

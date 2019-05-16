@@ -1,14 +1,17 @@
 import cellular
 import random
 import math
-import qlearn
+#import qlearn
 #import matplotlib.pyplot as plt
 import backprop
 import pickle
 import os.path
 from multiprocessing import Pool
 import json
-import dqn_torch
+import network
+import DQN_agent
+
+
 # Simulation Parameters
 
 map='food.txt'
@@ -30,7 +33,7 @@ actions=[0,1,2,3,4,5,6]    # set to [2,3,4] for not structure generation
 # Purely External
 #actions=[0,1,2,3,4]    # set to [2,3,4] for not structure generation
 
-posReward=10			# reward for completing a trip
+posReward=0			# reward for completing a trip
 negReward=-1            # reward for moving
 
 qEpsilon=0.1			# Q-Learning exploration rate
@@ -39,7 +42,7 @@ qAlpha=0.2				# Q-Learning learning rate
 qDecayTill=0           #Q decay till
 
 
-displaySize=10			# how big to make the display (set to 0 for no display)
+displaySize=0			# how big to make the display (set to 0 for no display)
 
 
 learningRate=0.01
@@ -48,7 +51,7 @@ updateTimes=100
 trainingTimes=10
 memStaet=[]
 
-agentsDict = {}
+agentsDict = {} 
 # for tracking how often different actions are chosen
 count=[0,0,0,0,0,0,0]
 
@@ -104,15 +107,15 @@ class Agent(cellular.Agent):
     self.hasFood=0
     self.foodCount=0
     self.pherTime=0
-    self.ai=qlearn.QLearn(epsilon=qEpsilon,lambd=qLambda,alpha=qAlpha)
+    self.ai=DQN_agent.DQN_agent([4,30,20,7])  #qlearn.QLearn(epsilon=qEpsilon,lambd=qLambda,alpha=qAlpha)
     self.decayTill = qDecayTill
     self.isPher_Lev_NN=isPher_Lev_NN
     self.isIhIt_NN =isIhIt_NN
     if self.isIhIt_NN and self.isPher_Lev_NN :
-      self.internal=backprop.NN(5,7,1)
+      self.internal=network.internal_memory([5,7,1])#backprop.NN(5,7,1)
     else:
-      self.internal = backprop.NN(3,3,1)
-    self.ai.setActions(actions)
+      self.internal = network.internal_memory([3,3,1])#backprop.NN(3,3,1)
+   # self.ai.setActions(actions)
     self.actionList=[]
     self.foodArray=[]
     self.mem=mem
@@ -129,7 +132,7 @@ class Agent(cellular.Agent):
       if self.isPher_Lev_NN:
         states.append(((2*self.getHomePherLevel())/3 )- 1)
         states.append(((2*self.getFoodPherLevel())/3 )- 1)
-      states.append(self.internal.ao[0])
+      states.append(self.internal.output[0])
       return states
 
   def update(self):
@@ -154,13 +157,13 @@ class Agent(cellular.Agent):
         self.pherTime+=1
 
     # Mixed Case
-    #what is use of this loop? may be some what randomizing memory
+    #what is use of this loop? this is kind of recurrant network which stabelize after few iterations
     for i in range(updateTimes):
        i=self.getmemState()
        self.internal.update(i)
 
     #why mem is sometimes 2,3
-    mem=round((self.internal.ao[0]+1.0)*self.mem/2)
+    mem=round((self.internal.output[0]+1.0)*self.mem/2)
     #self.MemState.append({"state":self.getmemState(),"memory":mem})
     #mem=int(self.internal.ao[0])
 
@@ -270,18 +273,15 @@ class Agent(cellular.Agent):
   def doChange(self,value):
     i=self.getmemState()
     for x in range(trainingTimes):
-      self.internal.trainOne(i,[value],learningRate)
+      self.internal.trainOne(i,value)
 
 
 
 
 def run(mem):
-#if __name__=='__main__':
   global isPher_Lev_NN,isIhIt_NN
   world=cellular.World(Cell,width,height)
   world.load(map)
-
-  # figure out where to put the ants (they should start at home)
   homes=[]
   for i in range(width):
     for j in range(height):
@@ -297,7 +297,6 @@ def run(mem):
   countList=[]
   data=[]
 
-  # run the simulation
   for i in range(time):
     world.update()
 
@@ -311,26 +310,10 @@ def run(mem):
       for j in range(len(count)): count[j]=0
 
   r={'trips':data,'count':countList}
-  #temprory removing action list
-  agentsDict
-  agents=[{"actions":agent.actionList,"food":agent.foodArray,"q":agent.ai.q} for agent in world.agents ]
-  # food =[agent.foodArray for agent in world.agents]
-  # #memList = [agent.MemState for agent in world.agents]
-  # r['actions']=actionList
-  # r['food']= food
+  agents=[{"actions":agent.actionList,"food":agent.foodArray} for agent in world.agents ]
   r['agents'] =agents 
-  
-#  agents = {}
-#  fl = None
-#  for i in range(len(world.agents)):
-#    agents[i]={"historyA":world.agents[i].ai.historyA,"historyS":world.agents[i].ai.historyS,"Q":world.agents[i].ai.q}
-#
-#  agentsDict[datetime.datetime.today().strftime('%Y-%m-%d-%R-%S')] = agents
-#  print("len agentsDic:",len(agentsDict))
+
   return r
-
-#run()
-
 
 
 
@@ -356,35 +339,37 @@ def multiProcessSimulation(nProcess,lst_args,func_ToProcess):
 
 
 if __name__=='__main__':
+      data=run(48.0)
+      pickleDumpToTheFile("data/data3.pkl",data)
   #print(run())
-  def simulate(memState):
-      #ts =  myTime.time()
-      print(memState)
-      flName ="Data/multi2/MemoryMap_multi"+str(memState)+".dat"
-      fl = open(flName,'wb+')
-      for i in range(1000):
-        print(i," iter","mem",memState)
-        data=run(memState)
-        #print(data)
-        pickle.dump(data,fl)
-      fl.close()
-  """ code commented bellow because to test with 48 mem 100000"""
-  def simulate2(iter):
-    print("iter:",iter)
-    flName ="Data/FreeRiders/Data_WithRandom/Data2_"+str(iter)+".json"
-    #fl = open(flName,'wb+')
-    data=run(48.0)
-    #pickle.dump(data,fl)
-    #fl.close()
-    with open(flName, 'w') as fp:
-      json.dump(data, fp,sort_keys=True)
-  lst=list(range(4))
-  # memList=[16.0,28.0,32.0,48.0,64.0]
-  # #[memList.append(float(m)) for m in range(24,40,4)]
-  p= Pool()
-  result = p.map(simulate2,lst)
-  p.close()
-  p.join()
+  # def simulate(memState):
+  #     #ts =  myTime.time()
+  #     print(memState)
+  #     flName ="Data/multi2/MemoryMap_multi"+str(memState)+".dat"
+  #     fl = open(flName,'wb+')
+  #     for i in range(1000):
+  #       print(i," iter","mem",memState)
+  #       data=run(memState)
+  #       #print(data)
+  #       pickle.dump(data,fl)
+  #     fl.close()
+  # """ code commented bellow because to test with 48 mem 100000"""
+  # def simulate2(iter):
+  #   print("iter:",iter)
+  #   flName ="Data/FreeRiders/Data_WithRandom/Data2_"+str(iter)+".json"
+  #   #fl = open(flName,'wb+')
+  #   data=run(48.0)
+  #   #pickle.dump(data,fl)
+  #   #fl.close()
+  #   with open(flName, 'w') as fp:
+  #     json.dump(data, fp,sort_keys=True)
+  # lst=list(range(4))
+  # # memList=[16.0,28.0,32.0,48.0,64.0]
+  # # #[memList.append(float(m)) for m in range(24,40,4)]
+  # p= Pool()
+  # result = p.map(simulate2,lst)
+  # p.close()
+  # p.join()
 
 #  for memState in memList:
 #      p=multiprocessing.Pool()
