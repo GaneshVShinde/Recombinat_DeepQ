@@ -19,7 +19,8 @@ height=30
 width=30
 
 antCount=10
-time=100000
+time=100
+binSize=20
 
 dispersionRate=0.04     # rate of spread of pheromone
 evaporationRate=0.99    # rate of disappearance of pheromone
@@ -58,12 +59,15 @@ count=[0,0,0,0,0,0,0]
 isPher_Lev_NN =True
 isIhIt_NN=False
 
-class Cell:
+class Cell(object):
   def __init__(self):
     self.isHome=0
     self.isFood=0
     self.homePher=0
     self.foodPher=0
+    self.homePherDropCount = 0
+    self.foodPherDropCount = 0
+
   def update(self,around):
     htotal=0
     ftotal=0
@@ -188,6 +192,7 @@ class Agent(cellular.Agent):
       self.followHomePher()
     elif choice==3:
       self.followFoodPher()
+
     elif choice==4:
       self.moveRandomly()
     elif choice==5:
@@ -200,10 +205,12 @@ class Agent(cellular.Agent):
   def dropFoodPher(self):
     here=self.getLocation()
     here.foodPher+=0.2
+    here.foodPherDropCount += 1;
     self.pherTime=0
   def dropHomePher(self):
     here=self.getLocation()
     here.homePher+=0.2
+    here.homePherDropCount += 1;
     self.pherTime=0
   def getPherLevel(self,p):
     if p==0: return 0
@@ -275,6 +282,19 @@ class Agent(cellular.Agent):
     for x in range(trainingTimes):
       self.internal.trainOne(i,value)
 
+  def serailized_agent(self,start):
+      agent_data_dummy={}
+      agent_data_dummy['hasFood']=self.hasFood
+      agent_data_dummy['foodCount']=self.foodCount
+      agent_data_dummy['pherTime']= self.pherTime
+      agent_data_dummy["actionList"]=self.actionList[start:-1]
+      agent_data_dummy["foodArray"]=self.foodArray[start:-1]
+      agent_data_dummy["x"]=self.x
+      agent_data_dummy["y"]=self.y
+      return agent_data_dummy
+      
+
+
 
 
 
@@ -296,20 +316,23 @@ def run(mem):
 
   countList=[]
   data=[]
+  world_map=[]
 
   for i in range(time):
     world.update()
 
-    if i%100==99:
-      totalFood=0.0
-      for a in world.agents:
-        totalFood+=a.foodCount
-        a.foodCount=0
-      data.append(totalFood/antCount)
-      countList.append(list(count))
-      for j in range(len(count)): count[j]=0
+    if i%binSize==0:
+          world_map.append(world.serialize_world(i-binSize))
+      # totalFood=0.0
+      # for a in world.agents:
+      #   totalFood+=a.foodCount
+      #   a.foodCount=0
+      # data.append(totalFood/antCount)
+      # countList.append(list(count))
+      # for j in range(len(count)): count[j]=0
 
-  r={'trips':data,'count':countList}
+  #r={'trips':data,'count':countList}
+  r={"world_map":world_map}
   agents=[{"actions":agent.actionList,"food":agent.foodArray} for agent in world.agents ]
   r['agents'] =agents 
 
@@ -335,12 +358,18 @@ def multiProcessSimulation(nProcess,lst_args,func_ToProcess):
     p.close()
     p.join()
 
+def json_dumps(data,fl):
+      import json
+      with open(fl,'w') as op:
+        json.dump(data,op)
+      
 
 
 
 if __name__=='__main__':
-      data=run(48.0)
-      pickleDumpToTheFile("data/data3.pkl",data)
+      pass
+    #  data=run(48.0)
+    #  pickleDumpToTheFile("data/data.pkl",data)
   #print(run())
   # def simulate(memState):
   #     #ts =  myTime.time()

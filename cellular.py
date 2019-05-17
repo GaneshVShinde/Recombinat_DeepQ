@@ -173,6 +173,14 @@ class World:
     self.root.destroy()
 
 
+  def serialize_world(self,start):
+      grid_details = [[self.grid[j][i].__dict__ for j in range(self.height)] for i in range(self.width)]
+      agent_data_dummy = [agent.serailized_agent(start) for agent in self.agents]
+
+      return{"grid":grid_details,"agent":agent_data_dummy}
+
+
+
 
 
 
