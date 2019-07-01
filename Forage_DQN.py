@@ -20,7 +20,7 @@ width=30
 
 antCount=10
 time=100
-binSize=20
+binSize=100
 
 dispersionRate=0.04     # rate of spread of pheromone
 evaporationRate=0.99    # rate of disappearance of pheromone
@@ -298,7 +298,7 @@ class Agent(cellular.Agent):
 
 
 
-def run(mem):
+def run(mem,file_name):
   global isPher_Lev_NN,isIhIt_NN
   world=cellular.World(Cell,width,height)
   world.load(map)
@@ -314,15 +314,17 @@ def run(mem):
   if displaySize:
     world.display(size=displaySize)
 
-  countList=[]
-  data=[]
-  world_map=[]
 
   for i in range(time):
     world.update()
 
     if i%binSize==0:
-          world_map.append(world.serialize_world(i-binSize))
+        with open(file_name,'ab+') as fp:
+          pickle.dump(world.serialize_world(i-binSize),fp)
+
+
+    # if i%binSize==0:
+    #       world_map.append(world.serialize_world(i-binSize))
       # totalFood=0.0
       # for a in world.agents:
       #   totalFood+=a.foodCount
@@ -332,7 +334,7 @@ def run(mem):
       # for j in range(len(count)): count[j]=0
 
   #r={'trips':data,'count':countList}
-  r={"world_map":world_map}
+  r={}
   agents=[{"actions":agent.actionList,"food":agent.foodArray} for agent in world.agents ]
   r['agents'] =agents 
 
@@ -367,7 +369,7 @@ def json_dumps(data,fl):
 
 
 if __name__=='__main__':
-      pass
+      run(4.0)
     #  data=run(48.0)
     #  pickleDumpToTheFile("data/data.pkl",data)
   #print(run())
