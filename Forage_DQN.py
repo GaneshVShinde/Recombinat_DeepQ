@@ -282,21 +282,30 @@ class Agent(cellular.Agent):
     for x in range(trainingTimes):
       self.internal.trainOne(i,value)
 
-  def serailized_agent(self,start):
-      agent_data_dummy={}
-      agent_data_dummy['hasFood']=self.hasFood
-      agent_data_dummy['foodCount']=self.foodCount
-      agent_data_dummy['pherTime']= self.pherTime
-      agent_data_dummy["actionList"]=self.actionList[start:-1]
-      agent_data_dummy["foodArray"]=self.foodArray[start:-1]
-      agent_data_dummy["x"]=self.x
-      agent_data_dummy["y"]=self.y
-      return agent_data_dummy
+  def serailized_agent(self):
+      #hasFood 0
+      #foodCount 1
+      #pherTime 2
+      #action 3
+      #food 4
+      # x 5
+      # y 6
+      return[self.hasFood,
+            self.foodCount,
+            self.pherTime,
+            self.actionList[-1],
+            self.foodArray[-1],
+            self.x,self.y] 
+
+      # agent_data_dummy['hasFood']=self.hasFood
+      # agent_data_dummy['foodCount']=self.foodCount
+      # agent_data_dummy['pherTime']= self.pherTime
+      # agent_data_dummy["actionList"]=self.actionList[start:-1]
+      # agent_data_dummy["foodArray"]=self.foodArray[start:-1]
+      # agent_data_dummy["x"]=self.x
+      # agent_data_dummy["y"]=self.y
+      # return agent_data_dummy
       
-
-
-
-
 
 def run(mem,file_name):
   global isPher_Lev_NN,isIhIt_NN
@@ -314,13 +323,14 @@ def run(mem,file_name):
   if displaySize:
     world.display(size=displaySize)
 
-
   for i in range(time):
     world.update()
 
     if i%binSize==0:
         with open(file_name,'ab+') as fp:
-          pickle.dump(world.serialize_world(i-binSize),fp)
+          pickle.dump(world.serialize_world(),fp)
+
+        # grid_data.append(world.serialize_world())
 
 
     # if i%binSize==0:
@@ -369,7 +379,8 @@ def json_dumps(data,fl):
 
 
 if __name__=='__main__':
-      run(4.0)
+      pass
+      # run(4.0)
     #  data=run(48.0)
     #  pickleDumpToTheFile("data/data.pkl",data)
   #print(run())
